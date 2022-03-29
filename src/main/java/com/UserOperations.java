@@ -12,13 +12,14 @@ import static io.restassured.RestAssured.given;
 public class UserOperations {
 
     public static final String EMAIL_POSTFIX = "@yandex.ru";
+    public final static Map<String, String> responseData = new HashMap<>();
 
     /*
      метод регистрации нового пользователя
      возвращает мапу с данными: имя, пароль, имэйл
      если регистрация не удалась, возвращает пустую мапу
      */
-    public Map<String, String> register() {
+    public static Map<String, String> register() {
 
         // с помощью библиотеки RandomStringUtils генерируем имэйл
         // метод randomAlphabetic генерирует строку, состоящую только из букв, в качестве параметра передаём длину строки
@@ -45,6 +46,38 @@ public class UserOperations {
                 .as(UserRegisterResponse.class);
 
         // возвращаем мапу с данными
+        if (response != null) {
+            responseData.put("email", response.getUser().getEmail());
+            responseData.put("name", response.getUser().getName());
+            responseData.put("password", password);
+
+            // токен, нужный для удаления пользователя, кладем в статическое поле класса с токенами
+            // убираем слово Bearer в начале токена
+            // так же запоминаем refreshToken
+            Tokens.setAccessToken(response.getAccessToken().substring(7));
+            Tokens.setRefreshToken(response.getRefreshToken());
+        }
+        return responseData;
+    }
+
+    public static Map<String, String> login(String email, String password) {
+
+        // создаём и заполняем мапу для передачи трех параметров в тело запроса
+        Map<String, String> inputDataMap = new HashMap<>();
+        inputDataMap.put("email", email);
+        inputDataMap.put("password", password);
+
+        // отправляем запрос на регистрацию пользователя и десериализуем ответ в переменную response
+        UserRegisterResponse response = given()
+                .spec(Base.getBaseSpec())
+                .and()
+                .body(inputDataMap)
+                .when()
+                .post("auth/login")
+                .body()
+                .as(UserRegisterResponse.class);
+
+        // возвращаем мапу с данными
         Map<String, String> responseData = new HashMap<>();
         if (response != null) {
             responseData.put("email", response.getUser().getEmail());
@@ -64,7 +97,7 @@ public class UserOperations {
      метод удаления пользователя по токену, возвращенному после создания
      пользователя. Удаляем только в случае, если token заполнен.
      */
-    public void delete() {
+    public static void delete() {
         if (Tokens.getAccessToken() == null) {
             return;
         }
